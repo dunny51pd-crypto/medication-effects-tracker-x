@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Medication Effects Tracker XP</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;background:#f4f5f7}
+*{box-sizing:border-box}body{margin:0}.app{max-width:720px;margin:auto;padding:18px 16px 40px}
+header{padding:8px 2px 18px}.eyebrow{font-size:13px;color:#6b7280}.title{font-size:30px;font-weight:800;margin:3px 0}.sub{color:#6b7280}
+.card{background:white;border:1px solid #e5e7eb;border-radius:18px;padding:16px;margin:12px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.wide{grid-column:1/-1}
+label{display:block;font-size:13px;font-weight:650;color:#4b5563;margin:0 0 6px}
+input,textarea,select{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:11px;font:inherit;background:white}
+textarea{min-height:74px;resize:vertical}
+button{border:0;border-radius:11px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer}
+.primary{width:100%;background:#111827;color:white}.secondary{background:#eef0f3;color:#111827}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center}.muted{color:#6b7280;font-size:13px}
+.metric{font-size:25px;font-weight:800}.xp{font-size:34px;font-weight:850}
+.score{display:flex;gap:6px}.score button{flex:1;padding:10px 4px;background:#eef0f3}.score button.selected{background:#111827;color:white}
+canvas{width:100%;height:210px;display:block}.notice{padding:10px;border-radius:10px;background:#f3f4f6;font-size:13px}
+.smallbtn{padding:8px 10px;font-size:13px}
+.history{max-height:280px;overflow:auto}.entry{padding:10px 0;border-bottom:1px solid #eee}.entry:last-child{border-bottom:0}
+@media(max-width:480px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="eyebrow">ME-XP · 4 WEEK TRACKER</div>
+  <div class="title">💊 Medication Effects Tracker XP</div>
+  <div class="sub">Track consistency, not perfection.</div>
+</header>
+
+<section class="card">
+  <div class="row"><div><div class="muted">Current streak</div><div id="streak" class="metric">0 days</div></div><div style="text-align:right"><div class="muted">XP</div><div id="xp" class="xp">0</div></div></div>
+</section>
+
+<section class="card">
+<form id="form">
+<div class="grid">
+  <div><label for="date">Date</label><input id="date" type="date" required></div>
+  <div><label for="time">Time</label><input id="time" type="time" required></div>
+  <div><label for="period">Check-in</label><select id="period"><option>Morning</option><option>Evening</option></select></div>
+  <div><label for="med">Medication</label><select id="med"><option>18 mg Xaggitin XL</option><option>Not taken</option></select></div>
+  <div><label for="bp">Blood pressure</label><input id="bp" placeholder="136/77" inputmode="numeric"></div>
+  <div><label for="hr">Heart rate</label><input id="hr" type="number" min="30" max="220" placeholder="66"></div>
+  <div><label>Focus · 1–5</label><div class="score" data-score="focus"></div></div>
+  <div><label>Motivation · 1–5</label><div class="score" data-score="motivation"></div></div>
+  <div><label>Distractibility · 1–5</label><div class="score" data-score="distraction"></div></div>
+  <div><label>Appetite · 1–5</label><div class="score" data-score="appetite"></div></div>
+  <div class="wide"><label for="notes">Notes</label><textarea id="notes" placeholder="Anything noticeable today?"></textarea></div>
+</div>
+<br><button class="primary" type="submit">Save check-in · +10 XP</button>
+<p id="message" class="muted" aria-live="polite"></p>
+</form>
+</section>
+
+<section class="card">
+<div class="row"><div><b>4-week overview</b><div class="muted">Your recorded readings</div></div><button id="export" class="secondary smallbtn">Export CSV</button></div>
+<canvas id="chart" width="680" height="210"></canvas>
+<div class="notice">This tracker records information for your own review. It does not interpret readings or replace advice from your prescriber.</div>
+</section>
+
+<section class="card">
+<div class="row"><b>Recent check-ins</b><button id="clear" class="secondary smallbtn">Clear data</button></div>
+<div id="history" class="history"></div>
+</section>
+</div>
+<script>
+(() => {
+const KEY="mexptracker_v1";
+const $=id=>document.getElementById(id);
+const today=new Date(), pad=n=>String(n).padStart(2,"0");
+$("date").value=`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+$("time").value=`${pad(today.getHours())}:${pad(today.getMinutes())}`;
+let data=JSON.parse(localStorage.getItem(KEY)||"[]");
+const scores={focus:0,motivation:0,distraction:0,appetite:0};
+
+document.querySelectorAll("[data-score]").forEach(box=>{
+  const key=box.dataset.score;
+  for(let i=1;i<=5;i++){
+    const b=document.createElement("button"); b.type="button"; b.textContent=i;
+    b.addEventListener("click",()=>{scores[key]=i;box.querySelectorAll("button").forEach(x=>x.classList.remove("selected"));b.classList.add("selected")});
+    box.appendChild(b);
+  }
+});
+
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function render(){
+  $("xp").textContent=data.length*10;
+  const days=[...new Set(data.map(x=>x.date))].sort();
+  let streak=0, d=new Date(); d.setHours(0,0,0,0);
+  for(;;){const k=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; if(!days.includes(k))break; streak++; d.setDate(d.getDate()-1)}
+  $("streak").textContent=streak+" day"+(streak===1?"":"s");
+  $("history").innerHTML=data.slice().reverse().slice(0,20).map(x=>`<div class="entry"><b>${esc(x.date)} · ${esc(x.period)}</b> — ${esc(x.bp||"No BP")} · HR ${esc(x.hr||"—")}<br><span class="muted">Focus ${x.focus||"—"} · Motivation ${x.motivation||"—"} · Distractibility ${x.distraction||"—"} · Appetite ${x.appetite||"—"}${x.notes?" · "+esc(x.notes):""}</span></div>`).join("")||'<div class="muted" style="padding-top:12px">No check-ins yet.</div>';
+  draw();
+}
+$("form").addEventListener("submit",e=>{
+ e.preventDefault();
+ const bp=$("bp").value.trim();
+ if(bp && !/^\\d{2,3}\\/\\d{2,3}$/.test(bp)){ $("message").textContent="Enter BP like 136/77."; return; }
+ const item={date:$("date").value,time:$("time").value,period:$("period").value,med:$("med").value,bp,hr:$("hr").value,focus:scores.focus,motivation:scores.motivation,distraction:scores.distraction,appetite:scores.appetite,notes:$("notes").value.trim()};
+ data.push(item); data.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)); save(); render();
+ $("message").textContent="Saved — +10 XP 🎉";
+ $("notes").value="";
+});
+$("clear").addEventListener("click",()=>{if(confirm("Delete all tracker data from this browser?")){data=[];save();render();}});
+$("export").addEventListener("click",()=>{
+ const headers=["date","time","period","med","bp","hr","focus","motivation","distraction","appetite","notes"];
+ const csv=[headers,...data.map(x=>headers.map(h=>`"${String(x[h]??"").replace(/"/g,'""')}"`))].map(r=>r.join(",")).join("\\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="medication-effects-tracker.csv";a.click();URL.revokeObjectURL(a.href);
+});
+function draw(){
+ const c=$("chart"),ctx=c.getContext("2d"),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);
+ ctx.strokeStyle="#d1d5db";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(40,15);ctx.lineTo(40,h-30);ctx.lineTo(w-10,h-30);ctx.stroke();
+ const vals=data.filter(x=>x.hr).slice(-28);
+ if(!vals.length){ctx.fillStyle="#6b7280";ctx.font="14px sans-serif";ctx.fillText("Your heart-rate trend will appear here.",55,80);return}
+ const nums=vals.map(x=>Number(x.hr)),min=Math.min(...nums)-5,max=Math.max(...nums)+5;
+ ctx.strokeStyle="#111827";ctx.lineWidth=2;ctx.beginPath();
+ vals.forEach((x,i)=>{const px=45+i*(w-60)/Math.max(1,vals.length-1),py=(h-35)-(Number(x.hr)-min)/(max-min)*(h-55);i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();
+}
+render();
+})();
+</script>
+</body>
+</html>
