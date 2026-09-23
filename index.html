@@ -67,7 +67,7 @@ canvas{width:100%;height:210px;display:block}.notice{padding:10px;border-radius:
 </section>
 
 <section class="card">
-<div class="row"><b>Recent check-ins</b><button id="clear" class="secondary smallbtn">Clear data</button></div>
+<div class="row"><div><b>Recent check-ins</b><div id="count" class="muted"></div></div><div style="display:flex;gap:6px"><button id="backup" class="secondary smallbtn">Backup</button><button id="clear" class="secondary smallbtn">Clear data</button></div></div>
 <div id="history" class="history"></div>
 </section>
 </div>
@@ -78,7 +78,26 @@ const $=id=>document.getElementById(id);
 const today=new Date(), pad=n=>String(n).padStart(2,"0");
 $("date").value=`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
 $("time").value=`${pad(today.getHours())}:${pad(today.getMinutes())}`;
-let data=JSON.parse(localStorage.getItem(KEY)||"[]");
+let data=[];
+try { data=JSON.parse(localStorage.getItem(KEY)||"[]"); if(!Array.isArray(data)) data=[]; } catch(e){ data=[]; }
+// Recovery data from the original v3 export. Merge only missing records so existing entries are preserved.
+const recovery=[
+ {date:"2026-09-21",time:"09:30",period:"Morning",med:"18 mg Xaggitin XL",bp:"136/77",hr:"66",focus:"0",motivation:"0",distraction:"0",appetite:"0",notes:"Baseline on day 1"},
+ {date:"2026-09-21",time:"20:33",period:"Evening",med:"18 mg Xaggitin XL",bp:"136/71",hr:"74",focus:"3",motivation:"3",distraction:"2",appetite:"2",notes:"I was doing ok, I didn’t feel tired after taking the medication, despite waking up really tired, had no afternoon slump and haven’t really been hungry"},
+ {date:"2026-09-22",time:"07:32",period:"Morning",med:"18 mg Xaggitin XL",bp:"117/62",hr:"55",focus:"3",motivation:"3",distraction:"3",appetite:"1",notes:"I slept for around 6.5 hours as I was up late last jight"},
+ {date:"2026-09-22",time:"19:42",period:"Evening",med:"18 mg Xaggitin XL",bp:"136/71",hr:"60",focus:"3",motivation:"2",distraction:"3",appetite:"1",notes:"Nothing stands out"},
+ {date:"2026-09-23",time:"08:33",period:"Morning",med:"18 mg Xaggitin XL",bp:"123/70",hr:"52",focus:"3",motivation:"2",distraction:"3",appetite:"1",notes:"CPAP still being used"},
+ {date:"2026-09-23",time:"20:05",period:"Morning",med:"18 mg Xaggitin XL",bp:"134/74",hr:"64",focus:"2",motivation:"2",distraction:"2",appetite:"1",notes:""},
+ {date:"2026-09-23",time:"20:05",period:"Morning",med:"18 mg Xaggitin XL",bp:"134/74",hr:"64",focus:"2",motivation:"2",distraction:"2",appetite:"1",notes:""},
+ {date:"2026-09-23",time:"20:05",period:"Evening",med:"18 mg Xaggitin XL",bp:"134/74",hr:"64",focus:"2",motivation:"2",distraction:"2",appetite:"1",notes:""}
+];
+const keyOf=x=>[x.date,x.time,x.period,x.med,x.bp,x.hr,x.focus,x.motivation,x.distraction,x.appetite,x.notes].join("|");
+if(data.length<=1){
+  const existing=new Set(data.map(keyOf));
+  recovery.forEach(x=>{if(!existing.has(keyOf(x))) data.push(x);});
+  data.sort((a,b)=>(a.date+a.time+a.period).localeCompare(b.date+b.time+b.period));
+  localStorage.setItem(KEY,JSON.stringify(data));
+}
 const scores={focus:0,motivation:0,distraction:0,appetite:0};
 
 document.querySelectorAll("[data-score]").forEach(box=>{
@@ -94,6 +113,7 @@ function save(){localStorage.setItem(KEY,JSON.stringify(data))}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function render(){
   $("xp").textContent=data.length*10;
+  $("count").textContent=data.length+" record"+(data.length===1?"":"s")+" stored";
   const days=[...new Set(data.map(x=>x.date))].sort();
   let streak=0, d=new Date(); d.setHours(0,0,0,0);
   for(;;){const k=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; if(!days.includes(k))break; streak++; d.setDate(d.getDate()-1)}
@@ -108,7 +128,7 @@ function render(){
         <button type="button" class="secondary smallbtn delete-entry" data-index="${data.length-1-idx}">Delete</button></div></div>`).join("")}
     </div>` : '<div class="muted" style="padding:10px 0">No check-ins recorded yet.</div>';
   $("history").innerHTML=recent.map((x,idx)=>`<div class="entry"><div class="row"><div><b>${esc(x.date)} · ${esc(x.period)}</b> — ${esc(x.bp||"No BP")} · HR ${esc(x.hr||"—")}<br><span class="muted">Focus ${x.focus||"—"} · Motivation ${x.motivation||"—"} · Distractibility ${x.distraction||"—"} · Appetite ${x.appetite||"—"}${x.notes?" · "+esc(x.notes):""}</span></div><button type="button" class="secondary smallbtn delete-entry" data-index="${data.length-1-idx}">Delete</button></div></div>`).join("")||'<div class="muted" style="padding-top:12px">No check-ins yet.</div>';
-  root.querySelectorAll(".delete-entry").forEach(btn=>btn.addEventListener("click",()=>{ const i=Number(btn.dataset.index); if(Number.isInteger(i)&&i>=0&&i<data.length&&confirm("Delete this check-in?")){data.splice(i,1);save();render();} }));
+  document.querySelectorAll(".delete-entry").forEach(btn=>btn.addEventListener("click",()=>{ const i=Number(btn.dataset.index); if(Number.isInteger(i)&&i>=0&&i<data.length&&confirm("Delete this check-in?")){data.splice(i,1);save();render();} }));
   draw();
 }
 $("form").addEventListener("submit",e=>{
@@ -121,6 +141,10 @@ $("form").addEventListener("submit",e=>{
  data.push(item); data.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)); save(); render();
  $("message").textContent="Saved — +10 XP 🎉";
  $("notes").value="";
+});
+$("backup").addEventListener("click",()=>{
+ const payload=JSON.stringify({version:1,exportedAt:new Date().toISOString(),records:data},null,2);
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([payload],{type:"application/json"}));a.download="medication-effects-tracker-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
 $("clear").addEventListener("click",()=>{if(confirm("Delete all tracker data from this browser?")){data=[];save();render();}});
 $("export").addEventListener("click",()=>{
