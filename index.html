@@ -22,7 +22,7 @@ button{border:0;border-radius:11px;padding:12px 14px;font:inherit;font-weight:70
 .metric{font-size:25px;font-weight:800}.xp{font-size:34px;font-weight:850}
 .score{display:flex;gap:6px}.score button{flex:1;padding:10px 4px;background:#eef0f3}.score button.selected{background:#111827;color:white}
 canvas{width:100%;height:210px;display:block}.notice{padding:10px;border-radius:10px;background:#f3f4f6;font-size:13px}
-.smallbtn{padding:8px 10px;font-size:13px}
+.smallbtn{padding:8px 10px;font-size:13px}.delete-entry{font-size:12px;padding:7px 9px;flex-shrink:0}
 .history{max-height:280px;overflow:auto}.entry{padding:10px 0;border-bottom:1px solid #eee}.entry:last-child{border-bottom:0}
 @media(max-width:480px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
 </style>
@@ -98,19 +98,17 @@ function render(){
   let streak=0, d=new Date(); d.setHours(0,0,0,0);
   for(;;){const k=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; if(!days.includes(k))break; streak++; d.setDate(d.getDate()-1)}
   $("streak").textContent=streak+" day"+(streak===1?"":"s");
-
   const recent=data.slice().reverse().slice(0,8);
   $("summary").innerHTML = recent.length ? `
     <div style="margin-top:14px">
       <div class="muted" style="margin-bottom:6px">Recorded check-ins</div>
-      ${recent.map(x=>`
-        <div class="entry">
-          <b>${esc(x.date)} · ${esc(x.period)}</b>
-          <div class="muted">BP ${esc(x.bp||"—")} · HR ${esc(x.hr||"—")} · Focus ${x.focus||"—"} · Appetite ${x.appetite||"—"}</div>
-        </div>`).join("")}
+      ${recent.map((x,idx)=>`
+        <div class="entry"><div class="row"><div><b>${esc(x.date)} · ${esc(x.period)}</b>
+        <div class="muted">BP ${esc(x.bp||"—")} · HR ${esc(x.hr||"—")} · Focus ${x.focus||"—"} · Appetite ${x.appetite||"—"}</div></div>
+        <button type="button" class="secondary smallbtn delete-entry" data-index="${data.length-1-idx}">Delete</button></div></div>`).join("")}
     </div>` : '<div class="muted" style="padding:10px 0">No check-ins recorded yet.</div>';
-
-  $("history").innerHTML=recent.map(x=>`<div class="entry"><b>${esc(x.date)} · ${esc(x.period)}</b> — ${esc(x.bp||"No BP")} · HR ${esc(x.hr||"—")}<br><span class="muted">Focus ${x.focus||"—"} · Motivation ${x.motivation||"—"} · Distractibility ${x.distraction||"—"} · Appetite ${x.appetite||"—"}${x.notes?" · "+esc(x.notes):""}</span></div>`).join("")||'<div class="muted" style="padding-top:12px">No check-ins yet.</div>';
+  $("history").innerHTML=recent.map((x,idx)=>`<div class="entry"><div class="row"><div><b>${esc(x.date)} · ${esc(x.period)}</b> — ${esc(x.bp||"No BP")} · HR ${esc(x.hr||"—")}<br><span class="muted">Focus ${x.focus||"—"} · Motivation ${x.motivation||"—"} · Distractibility ${x.distraction||"—"} · Appetite ${x.appetite||"—"}${x.notes?" · "+esc(x.notes):""}</span></div><button type="button" class="secondary smallbtn delete-entry" data-index="${data.length-1-idx}">Delete</button></div></div>`).join("")||'<div class="muted" style="padding-top:12px">No check-ins yet.</div>';
+  root.querySelectorAll(".delete-entry").forEach(btn=>btn.addEventListener("click",()=>{ const i=Number(btn.dataset.index); if(Number.isInteger(i)&&i>=0&&i<data.length&&confirm("Delete this check-in?")){data.splice(i,1);save();render();} }));
   draw();
 }
 $("form").addEventListener("submit",e=>{
