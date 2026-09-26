@@ -164,7 +164,8 @@ function nextCheckIn(){
 function updatePeriodFields(){
   const morning=$('period').value==='Morning';
   document.querySelectorAll('[data-metric="focus"],[data-metric="distraction"]').forEach(el=>el.style.display=morning?'none':'block');
-  $('periodHint').textContent=morning?'Morning: motivation, appetite and sleep/energy are shown; focus and distractibility can be completed in the evening.':'Evening: focus, motivation, distractibility and appetite are shown.';
+  document.querySelector('[data-metric="energy"]').style.display=morning?'block':'none';
+  $('periodHint').textContent=morning?'Morning: motivation, appetite and sleep/energy are shown; focus and distractibility can be completed in the evening.':'Evening: focus, motivation, distractibility and appetite are shown; sleep/energy is recorded in the morning.';
 }
 
 document.querySelectorAll("[data-score]").forEach(box=>{
@@ -207,7 +208,8 @@ $("form").addEventListener("submit",e=>{
  if((sys && !dia) || (!sys && dia)){ $("message").textContent="Enter both BP numbers."; return; }
  if(sys && (Number(sys)<50 || Number(sys)>250 || Number(dia)<30 || Number(dia)>150)){ $("message").textContent="Please check the BP numbers."; return; }
  const bp=sys && dia ? `${sys}/${dia}` : "";
- const item={date:$('date').value,time:$('time').value,period:$('period').value,med:$('med').value,bp,sys:sys?Number(sys):"",dia:dia?Number(dia):"",hr:$('hr').value,focus:scores.focus,motivation:scores.motivation,distraction:scores.distraction,appetite:scores.appetite,energy:scores.energy,notes:$('notes').value.trim()};
+ const morning=$('period').value==='Morning';
+ const item={date:$('date').value,time:$('time').value,period:$('period').value,med:$('med').value,bp,sys:sys?Number(sys):"",dia:dia?Number(dia):"",hr:$('hr').value,focus:morning?0:scores.focus,motivation:scores.motivation,distraction:morning?0:scores.distraction,appetite:scores.appetite,energy:morning?scores.energy:0,notes:$('notes').value.trim()};
  const wasEditing=editingIndex!==null;
  if(wasEditing){ data[editingIndex]=item; }
  else { data.push(item); data.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)); }
