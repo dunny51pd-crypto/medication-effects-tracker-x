@@ -21,7 +21,7 @@ button{border:0;border-radius:11px;padding:12px 14px;font:inherit;font-weight:70
 .row{display:flex;justify-content:space-between;gap:10px;align-items:center}.muted{color:#6b7280;font-size:13px}
 .metric{font-size:25px;font-weight:800}.xp{font-size:34px;font-weight:850}
 .score{display:flex;gap:6px}.score button{flex:1;padding:10px 4px;background:#eef0f3}.score button.selected{background:#111827;color:white}
-canvas{width:100%;height:auto;display:block}.graph-card{overflow:hidden}.graph-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:22px 0 2px}.readout-item{display:flex;flex-direction:column;gap:3px}.readout-label{font-size:18px;color:#111827}.readout-item strong{font-size:52px;line-height:1;font-weight:800}.sys-val{color:#2563eb}.dia-val{color:#16a34a}.hr-val{color:#eab308}.selected-time{text-align:right;font-size:24px;font-weight:800;color:#374151;margin:12px 0 4px}.chart-shell{width:100%;overflow:hidden}.slider-row{display:flex;align-items:center;gap:12px;margin:10px 0 0}.slider-row input{flex:1;padding:0;border:0}.slider-row input[type=range]{accent-color:#111827}.graph-note{font-size:15px;color:#6b7280;margin-top:14px;line-height:1.35}@media(max-width:480px){.graph-readout{gap:8px}.readout-label{font-size:15px}.readout-item strong{font-size:42px}.selected-time{font-size:20px}.graph-note{font-size:14px}}.notice{padding:10px;border-radius:10px;background:#f3f4f6;font-size:13px}
+canvas{width:100%;height:auto;display:block}.graph-card{overflow:hidden}.graph-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:22px 0 2px}.readout-item{display:flex;flex-direction:column;gap:3px}.readout-label{font-size:18px;color:#111827}.readout-item strong{font-size:42px;line-height:1;font-weight:800}.sys-val{color:#2563eb}.dia-val{color:#16a34a}.hr-val{color:#eab308}.selected-time{text-align:right;font-size:20px;font-weight:800;color:#374151;margin:12px 0 4px}.chart-shell{width:100%;overflow:hidden}.graph-note{font-size:15px;color:#6b7280;margin-top:14px;line-height:1.35}@media(max-width:480px){.graph-readout{gap:8px}.readout-label{font-size:13px}.readout-item strong{font-size:36px}.selected-time{font-size:18px}.graph-note{font-size:14px}}.notice{padding:10px;border-radius:10px;background:#f3f4f6;font-size:13px}
 .smallbtn{padding:8px 10px;font-size:13px}.delete-entry{font-size:12px;padding:7px 9px;flex-shrink:0}.edit-entry{font-size:12px;padding:7px 9px;flex-shrink:0}.actions{display:flex;gap:6px;flex-shrink:0}
 .history{max-height:280px;overflow:auto}.entry{padding:10px 0;border-bottom:1px solid #eee}.entry:last-child{border-bottom:0}
 @media(max-width:480px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
@@ -30,7 +30,7 @@ canvas{width:100%;height:auto;display:block}.graph-card{overflow:hidden}.graph-r
 <body>
 <div class="app">
 <header>
-  <div class="eyebrow">ME-XP · v6 · 4 WEEK TRACKER</div>
+  <div class="eyebrow">ME-XP · v6.1 · 4 WEEK TRACKER</div>
   <div class="title">💊 Medication Effects Tracker XP</div>
   <div class="sub">Track consistency, not perfection.</div>
 </header>
@@ -69,7 +69,7 @@ canvas{width:100%;height:auto;display:block}.graph-card{overflow:hidden}.graph-r
 </div>
 <div id="selectedTime" class="selected-time">—</div>
 <div class="chart-shell"><canvas id="chart" width="900" height="520"></canvas></div>
-<div class="slider-row"><input id="chartSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Move through recorded readings"><div id="sliderLabel" class="muted">Move through readings</div></div>
+
 <div class="graph-note">Systolic and diastolic are measured in mmHg. Heart rate is measured in bpm.</div>
 <div id="summary"></div>
 <div class="notice">This tracker records information for your own review. It does not interpret readings or replace advice from your prescriber.</div>
@@ -82,13 +82,29 @@ canvas{width:100%;height:auto;display:block}.graph-card{overflow:hidden}.graph-r
 </div>
 <script>
 (() => {
-const KEY="mexptracker_v1";
+const KEY="mexptracker_v2";
+const OLD_KEY="mexptracker_v1";
 const $=id=>document.getElementById(id);
 const today=new Date(), pad=n=>String(n).padStart(2,"0");
 $("date").value=`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
 $("time").value=`${pad(today.getHours())}:${pad(today.getMinutes())}`;
 let data=[];
-try { data=JSON.parse(localStorage.getItem(KEY)||"[]"); if(!Array.isArray(data)) data=[]; } catch(e){ data=[]; }
+try {
+  data=JSON.parse(localStorage.getItem(KEY)||"[]");
+  if(!Array.isArray(data)) data=[];
+} catch(e){ data=[]; }
+// One-time migration: preserve a user's existing dataset, but never carry the old
+// prototype's seeded/recovery dataset into the clean public build. The user's
+// current phone has more than the old seeded set, so it is preserved.
+if(!data.length){
+  try {
+    const oldData=JSON.parse(localStorage.getItem(OLD_KEY)||"[]");
+    if(Array.isArray(oldData) && oldData.length>9){
+      data=oldData;
+      localStorage.setItem(KEY,JSON.stringify(data));
+    }
+  } catch(e){}
+}
 // No personal or recovery data is embedded in the production build.
 // Each user starts with an empty local browser store unless they import their own backup.
 // Choose the next check-in when the app opens, based on the most recent saved record.
@@ -238,15 +254,15 @@ $("export").addEventListener("click",()=>{
  const csv="\uFEFF"+[headers.map(h=>`"${h}"`).join(","),...rows.map(r=>r.join(","))].join("\r\n");
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="medication-effects-tracker.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });;
+let selectedChartIndex=0;
 function draw(){
  const c=$("chart"),ctx=c.getContext("2d");
  const dpr=Math.max(1,window.devicePixelRatio||1),cssW=Math.max(320,c.clientWidth||900),cssH=Math.max(360,Math.round(cssW*0.58));
  c.width=Math.round(cssW*dpr);c.height=Math.round(cssH*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
  const vals=data.filter(x=>x.bp||x.hr).slice(-28);
- const slider=$("chartSlider");
- if(!vals.length){ctx.clearRect(0,0,cssW,cssH);ctx.fillStyle="#6b7280";ctx.font="16px sans-serif";ctx.fillText("Your blood pressure and heart-rate trend will appear here.",24,80);slider.max=0;return;}
- slider.max=String(vals.length-1);if(Number(slider.value)>vals.length-1)slider.value=String(vals.length-1);
- const selected=Math.min(vals.length-1,Math.max(0,Number(slider.value)||0));
+ if(!vals.length){ctx.clearRect(0,0,cssW,cssH);ctx.fillStyle="#6b7280";ctx.font="16px sans-serif";ctx.fillText("Your blood pressure and heart-rate trend will appear here.",24,80);return;}
+ const selected=Math.min(vals.length-1,Math.max(0,selectedChartIndex));
+ selectedChartIndex=selected;
  const points=vals.map(x=>({
    sys:Number.isFinite(Number(x.sys))?Number(x.sys):Number(String(x.bp||"").split("/")[0]),
    dia:Number.isFinite(Number(x.dia))?Number(x.dia):Number(String(x.bp||"").split("/")[1]),
@@ -256,25 +272,50 @@ function draw(){
  const min=30,max=150;
  ctx.clearRect(0,0,cssW,cssH);
  // grid / Y axis
- ctx.font="18px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillStyle="#6b7280";ctx.textAlign="right";ctx.textBaseline="middle";
+ ctx.font="12px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillStyle="#6b7280";ctx.textAlign="right";ctx.textBaseline="middle";
  [150,120,90,60,30].forEach(v=>{const y=bottom-(v-min)/(max-min)*(bottom-top);ctx.setLineDash([4,7]);ctx.strokeStyle="#d9dde3";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.setLineDash([]);ctx.fillText(String(v),left-10,y);});
  // smooth Catmull-Rom path
  function pathSeries(key){const arr=points.map((p,i)=>{const v=p[key];return Number.isFinite(v)?{x:left+(right-left)*i/Math.max(1,points.length-1),y:bottom-(v-min)/(max-min)*(bottom-top)}:null});return arr;}
- function drawSmooth(arr,color){ctx.strokeStyle=color;ctx.lineWidth=5;ctx.lineJoin="round";ctx.lineCap="round";ctx.beginPath();let started=false;for(let i=0;i<arr.length;i++){if(!arr[i]){started=false;continue}if(!started){ctx.moveTo(arr[i].x,arr[i].y);started=true;continue}const p0=arr[i-2]||arr[i-1],p1=arr[i-1],p2=arr[i],p3=arr[i+1]||p2;for(let t=0;t<=1;t+=0.08){const tt=t*t,ttt=tt*t;const x=0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*tt+(-p0.x+3*p1.x-3*p2.x+p3.x)*ttt);const y=0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*tt+(-p0.y+3*p1.y-3*p2.y+p3.y)*ttt);if(i===1&&t===0){}ctx.lineTo(x,y);} }ctx.stroke();}
+ function drawSmooth(arr,color){ctx.strokeStyle=color;ctx.lineWidth=3;ctx.lineJoin="round";ctx.lineCap="round";ctx.beginPath();let started=false;for(let i=0;i<arr.length;i++){if(!arr[i]){started=false;continue}if(!started){ctx.moveTo(arr[i].x,arr[i].y);started=true;continue}const p0=arr[i-2]||arr[i-1],p1=arr[i-1],p2=arr[i],p3=arr[i+1]||p2;for(let t=0;t<=1;t+=0.08){const tt=t*t,ttt=tt*t;const x=0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*tt+(-p0.x+3*p1.x-3*p2.x+p3.x)*ttt);const y=0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*tt+(-p0.y+3*p1.y-3*p2.y+p3.y)*ttt);if(i===1&&t===0){}ctx.lineTo(x,y);} }ctx.stroke();}
  const series=[{key:"sys",label:"Systolic BP",color:"#2563eb"},{key:"dia",label:"Diastolic BP",color:"#16a34a"},{key:"hr",label:"Heart rate",color:"#eab308"}];
  series.forEach(s=>drawSmooth(pathSeries(s.key),s.color));
  // selected cursor and points
  const sx=left+(right-left)*selected/Math.max(1,points.length-1);ctx.strokeStyle="#6b7280";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx,top);ctx.lineTo(sx,bottom);ctx.stroke();
  series.forEach(s=>{const v=points[selected][s.key];if(!Number.isFinite(v))return;const y=bottom-(v-min)/(max-min)*(bottom-top);ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(sx,y,11,0,Math.PI*2);ctx.fill();});
  // legend
- let lx=left;ctx.font="17px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.textBaseline="middle";ctx.textAlign="left";series.forEach(s=>{ctx.fillStyle=s.color;ctx.fillRect(lx,20,24,9);ctx.fillStyle="#374151";ctx.fillText(s.label,lx+34,25);lx+=ctx.measureText(s.label).width+88;});
+ let lx=left;ctx.font="10px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.textBaseline="middle";ctx.textAlign="left";series.forEach(s=>{ctx.fillStyle=s.color;ctx.fillRect(lx,20,12,6);ctx.fillStyle="#374151";ctx.fillText(s.label,lx+18,23);lx+=ctx.measureText(s.label).width+36;});
  // X labels, deliberately sparse for readability
- ctx.fillStyle="#6b7280";ctx.font="16px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.textBaseline="top";ctx.textAlign="center";
+ ctx.fillStyle="#6b7280";ctx.font="11px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.textBaseline="top";ctx.textAlign="center";
  const labels=[0,selected,vals.length-1].filter((v,i,a)=>a.indexOf(v)===i).sort((a,b)=>a-b);labels.forEach(i=>{const x=left+(right-left)*i/Math.max(1,vals.length-1);const label=`${vals[i].date.slice(5)} ${vals[i].time}`;ctx.fillText(label,x,bottom+18);});
- ctx.font="18px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillText("Date / time",(left+right)/2,bottom+46);
- const v=points[selected], item=vals[selected];$("selSys").textContent=Number.isFinite(v.sys)?v.sys:"—";$("selDia").textContent=Number.isFinite(v.dia)?v.dia:"—";$("selHr").textContent=Number.isFinite(v.hr)?v.hr:"—";$("selectedTime").textContent=`${item.date} ${item.time}`;$("sliderLabel").textContent=`Reading ${selected+1} of ${vals.length}`;
+ ctx.font="12px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillText("Date / time",(left+right)/2,bottom+46);
+ const v=points[selected], item=vals[selected];$("selSys").textContent=Number.isFinite(v.sys)?v.sys:"—";$("selDia").textContent=Number.isFinite(v.dia)?v.dia:"—";$("selHr").textContent=Number.isFinite(v.hr)?v.hr:"—";$("selectedTime").textContent=`${item.date} ${item.time}`;
 }
-$("chartSlider").addEventListener("input",draw);
+function chartIndexFromPointer(e){
+ const c=$("chart");
+ const rect=c.getBoundingClientRect();
+ const x=Math.max(0,Math.min(rect.width,(e.clientX-rect.left)));
+ const vals=data.filter(x=>x.bp||x.hr).slice(-28);
+ if(vals.length<2)return 0;
+ const left=58*(rect.width/900); const right=rect.width-(18*(rect.width/900));
+ const usable=Math.max(1,right-left);
+ return Math.round(((x-left)/usable)*(vals.length-1));
+}
+function selectChartReading(e){
+ const c=$("chart");
+ const rect=c.getBoundingClientRect();
+ const x=e.clientX-rect.left;
+ const scale=rect.width/900;
+ const left=58*scale, right=rect.width-(18*scale);
+ const vals=data.filter(x=>x.bp||x.hr).slice(-28);
+ if(!vals.length)return;
+ selectedChartIndex=Math.max(0,Math.min(vals.length-1,Math.round(((x-left)/Math.max(1,right-left))*(vals.length-1))));
+ draw();
+}
+const chartCanvas=$("chart");
+chartCanvas.style.touchAction="none";
+chartCanvas.addEventListener("pointerdown",e=>{chartCanvas.setPointerCapture?.(e.pointerId);selectChartReading(e);});
+chartCanvas.addEventListener("pointermove",e=>{if(e.buttons||e.pressure>0)selectChartReading(e);});
+chartCanvas.addEventListener("click",selectChartReading);
 window.addEventListener("resize",draw);
 
 
