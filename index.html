@@ -21,7 +21,7 @@ button{border:0;border-radius:11px;padding:12px 14px;font:inherit;font-weight:70
 .row{display:flex;justify-content:space-between;gap:10px;align-items:center}.muted{color:#6b7280;font-size:13px}
 .metric{font-size:25px;font-weight:800}.xp{font-size:34px;font-weight:850}
 .score{display:flex;gap:6px}.score button{flex:1;padding:10px 4px;background:#eef0f3}.score button.selected{background:#111827;color:white}
-canvas{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair}.graph-card{overflow:hidden}.graph-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0 2px}.readout-item{display:flex;flex-direction:column;gap:2px}.readout-label{font-size:15px;color:#111827}.readout-item strong{font-size:40px;line-height:1;font-weight:800}.sys-val{color:#2563eb}.dia-val{color:#16a34a}.hr-val{color:#eab308}.selected-time{text-align:right;font-size:18px;font-weight:800;color:#374151;margin:8px 0 4px}.chart-shell{width:100%;overflow:hidden}.slider-row{display:flex;align-items:center;gap:12px;margin:10px 0 0}.slider-row input{flex:1;padding:0;border:0}.slider-row input[type=range]{accent-color:#111827}.graph-note{font-size:15px;color:#6b7280;margin-top:14px;line-height:1.35}@media(max-width:480px){.graph-readout{gap:7px;margin-top:10px}.readout-label{font-size:13px}.readout-item strong{font-size:34px}.selected-time{font-size:16px}.graph-note{font-size:14px}}.notice{padding:10px;border-radius:10px;background:#f3f4f6;font-size:13px}
+canvas{width:100%;height:auto;display:block}.graph-card{overflow:hidden}.graph-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:22px 0 2px}.readout-item{display:flex;flex-direction:column;gap:3px}.readout-label{font-size:18px;color:#111827}.readout-item strong{font-size:52px;line-height:1;font-weight:800}.sys-val{color:#2563eb}.dia-val{color:#16a34a}.hr-val{color:#eab308}.selected-time{text-align:right;font-size:24px;font-weight:800;color:#374151;margin:12px 0 4px}.chart-shell{width:100%;overflow:hidden}.slider-row{display:flex;align-items:center;gap:12px;margin:10px 0 0}.slider-row input{flex:1;padding:0;border:0}.slider-row input[type=range]{accent-color:#111827}.graph-note{font-size:15px;color:#6b7280;margin-top:14px;line-height:1.35}@media(max-width:480px){.graph-readout{gap:8px}.readout-label{font-size:15px}.readout-item strong{font-size:42px}.selected-time{font-size:20px}.graph-note{font-size:14px}}.notice{padding:10px;border-radius:10px;background:#f3f4f6;font-size:13px}
 .smallbtn{padding:8px 10px;font-size:13px}.delete-entry{font-size:12px;padding:7px 9px;flex-shrink:0}.edit-entry{font-size:12px;padding:7px 9px;flex-shrink:0}.actions{display:flex;gap:6px;flex-shrink:0}
 .history{max-height:280px;overflow:auto}.entry{padding:10px 0;border-bottom:1px solid #eee}.entry:last-child{border-bottom:0}
 @media(max-width:480px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
@@ -61,7 +61,7 @@ canvas{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair}
 </section>
 
 <section class="card graph-card">
-<div class="row"><div><b>Blood pressure and heart rate</b><div class="muted">Recorded readings over time.</div></div><div style="display:flex;gap:6px"><button id="export" class="secondary smallbtn">Export CSV</button><button id="restore" class="secondary smallbtn" type="button">Restore</button><input id="restoreFile" type="file" accept="application/json,.json" style="display:none"></div></div>
+<div class="row"><div><b>Blood pressure and heart rate</b><div class="muted">Recorded readings over time.</div></div><button id="export" class="secondary smallbtn">Export CSV</button></div>
 <div class="graph-readout" id="graphReadout">
   <div class="readout-item"><span class="readout-label">Systolic BP</span><strong id="selSys" class="sys-val">—</strong></div>
   <div class="readout-item"><span class="readout-label">Diastolic BP</span><strong id="selDia" class="dia-val">—</strong></div>
@@ -69,7 +69,7 @@ canvas{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair}
 </div>
 <div id="selectedTime" class="selected-time">—</div>
 <div class="chart-shell"><canvas id="chart" width="900" height="520"></canvas></div>
-<div id="sliderLabel" class="muted" style="text-align:center;margin-top:8px">Touch or drag the graph to move through readings</div>
+<div class="slider-row"><input id="chartSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Move through recorded readings"><div id="sliderLabel" class="muted">Move through readings</div></div>
 <div class="graph-note">Systolic and diastolic are measured in mmHg. Heart rate is measured in bpm.</div>
 <div id="summary"></div>
 <div class="notice">This tracker records information for your own review. It does not interpret readings or replace advice from your prescriber.</div>
@@ -89,22 +89,8 @@ $("date").value=`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.g
 $("time").value=`${pad(today.getHours())}:${pad(today.getMinutes())}`;
 let data=[];
 try { data=JSON.parse(localStorage.getItem(KEY)||"[]"); if(!Array.isArray(data)) data=[]; } catch(e){ data=[]; }
-// Recovery data from the original v3 export. Merge only missing records so existing entries are preserved.
-const recovery=[
- {date:"2026-09-21",time:"09:30",period:"Morning",med:"18 mg Xaggitin XL",bp:"136/77",hr:"66",focus:"0",motivation:"0",distraction:"0",appetite:"0",notes:"Baseline on day 1"},
- {date:"2026-09-21",time:"20:33",period:"Evening",med:"18 mg Xaggitin XL",bp:"136/71",hr:"74",focus:"3",motivation:"3",distraction:"2",appetite:"2",notes:"I was doing ok, I didn’t feel tired after taking the medication, despite waking up really tired, had no afternoon slump and haven’t really been hungry"},
- {date:"2026-09-22",time:"07:32",period:"Morning",med:"18 mg Xaggitin XL",bp:"117/62",hr:"55",focus:"3",motivation:"3",distraction:"3",appetite:"1",notes:"I slept for around 6.5 hours as I was up late last jight"},
- {date:"2026-09-22",time:"19:42",period:"Evening",med:"18 mg Xaggitin XL",bp:"136/71",hr:"60",focus:"3",motivation:"2",distraction:"3",appetite:"1",notes:"Nothing stands out"},
- {date:"2026-09-23",time:"08:33",period:"Morning",med:"18 mg Xaggitin XL",bp:"123/70",hr:"52",focus:"3",motivation:"2",distraction:"3",appetite:"1",notes:"CPAP still being used"},
- {date:"2026-09-23",time:"20:05",period:"Evening",med:"18 mg Xaggitin XL",bp:"134/74",hr:"64",focus:"2",motivation:"2",distraction:"2",appetite:"1",notes:""}
-];
-const keyOf=x=>[x.date,x.time,x.period,x.med,x.bp,x.hr,x.focus,x.motivation,x.distraction,x.appetite,x.notes].join("|");
-if(data.length<=1){
-  const existing=new Set(data.map(keyOf));
-  recovery.forEach(x=>{if(!existing.has(keyOf(x))) data.push(x);});
-  data.sort((a,b)=>(a.date+a.time+a.period).localeCompare(b.date+b.time+b.period));
-  localStorage.setItem(KEY,JSON.stringify(data));
-}
+// No personal or recovery data is embedded in the production build.
+// Each user starts with an empty local browser store unless they import their own backup.
 // Choose the next check-in when the app opens, based on the most recent saved record.
 function initialiseNextCheckIn(){
   if(!data.length){ updatePeriodFields(); return; }
@@ -239,22 +225,6 @@ $("form").addEventListener("submit",e=>{
  if(!wasEditing){ nextCheckIn(); clearScores(); $('notes').value=''; $('sys').value=''; $('dia').value=''; $('hr').value=''; }
  else { resetFormForNewEntry(); }
 });
-$("restore").addEventListener("click",()=>$("restoreFile").click());
-$("restoreFile").addEventListener("change",async e=>{
- const file=e.target.files&&e.target.files[0]; if(!file) return;
- try{
-   const parsed=JSON.parse(await file.text());
-   const incoming=Array.isArray(parsed)?parsed:(Array.isArray(parsed.records)?parsed.records:[]);
-   if(!incoming.length) throw new Error("No records found");
-   const existing=new Set(data.map(keyOf));
-   let added=0;
-   incoming.forEach(x=>{if(x&&typeof x==='object'&&!existing.has(keyOf(x))){data.push(x);existing.add(keyOf(x));added++;}});
-   data.sort((a,b)=>(String(a.date)+String(a.time)).localeCompare(String(b.date)+String(b.time)));
-   save(); render();
-   $("message").textContent=`Restored ${added} new record${added===1?'':'s'} (${incoming.length} in backup). Existing records were kept.`;
- }catch(err){ alert("That backup file could not be restored. Please choose a Med XP JSON backup."); }
- e.target.value="";
-});
 $("backup").addEventListener("click",()=>{
  const payload=JSON.stringify({version:1,exportedAt:new Date().toISOString(),records:data},null,2);
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([payload],{type:"application/json"}));a.download="medication-effects-tracker-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -268,16 +238,15 @@ $("export").addEventListener("click",()=>{
  const csv="\uFEFF"+[headers.map(h=>`"${h}"`).join(","),...rows.map(r=>r.join(","))].join("\r\n");
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="medication-effects-tracker.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });;
-let selectedIndex=0;
-let graphDragging=false;
 function draw(){
  const c=$("chart"),ctx=c.getContext("2d");
  const dpr=Math.max(1,window.devicePixelRatio||1),cssW=Math.max(320,c.clientWidth||900),cssH=Math.max(360,Math.round(cssW*0.58));
  c.width=Math.round(cssW*dpr);c.height=Math.round(cssH*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
  const vals=data.filter(x=>x.bp||x.hr).slice(-28);
- if(!vals.length){ctx.clearRect(0,0,cssW,cssH);ctx.fillStyle="#6b7280";ctx.font="16px sans-serif";ctx.fillText("Your blood pressure and heart-rate trend will appear here.",24,80);$("sliderLabel").textContent="Touch or drag the graph to move through readings";return;}
- selectedIndex=Math.min(vals.length-1,Math.max(0,selectedIndex));
- const selected=selectedIndex;
+ const slider=$("chartSlider");
+ if(!vals.length){ctx.clearRect(0,0,cssW,cssH);ctx.fillStyle="#6b7280";ctx.font="16px sans-serif";ctx.fillText("Your blood pressure and heart-rate trend will appear here.",24,80);slider.max=0;return;}
+ slider.max=String(vals.length-1);if(Number(slider.value)>vals.length-1)slider.value=String(vals.length-1);
+ const selected=Math.min(vals.length-1,Math.max(0,Number(slider.value)||0));
  const points=vals.map(x=>({
    sys:Number.isFinite(Number(x.sys))?Number(x.sys):Number(String(x.bp||"").split("/")[0]),
    dia:Number.isFinite(Number(x.dia))?Number(x.dia):Number(String(x.bp||"").split("/")[1]),
@@ -291,34 +260,21 @@ function draw(){
  [150,120,90,60,30].forEach(v=>{const y=bottom-(v-min)/(max-min)*(bottom-top);ctx.setLineDash([4,7]);ctx.strokeStyle="#d9dde3";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.setLineDash([]);ctx.fillText(String(v),left-10,y);});
  // smooth Catmull-Rom path
  function pathSeries(key){const arr=points.map((p,i)=>{const v=p[key];return Number.isFinite(v)?{x:left+(right-left)*i/Math.max(1,points.length-1),y:bottom-(v-min)/(max-min)*(bottom-top)}:null});return arr;}
- function drawSmooth(arr,color){ctx.strokeStyle=color;ctx.lineWidth=3;ctx.lineJoin="round";ctx.lineCap="round";ctx.beginPath();let started=false;for(let i=0;i<arr.length;i++){if(!arr[i]){started=false;continue}if(!started){ctx.moveTo(arr[i].x,arr[i].y);started=true;continue}const p0=arr[i-2]||arr[i-1],p1=arr[i-1],p2=arr[i],p3=arr[i+1]||p2;for(let t=0;t<=1;t+=0.08){const tt=t*t,ttt=tt*t;const x=0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*tt+(-p0.x+3*p1.x-3*p2.x+p3.x)*ttt);const y=0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*tt+(-p0.y+3*p1.y-3*p2.y+p3.y)*ttt);if(i===1&&t===0){}ctx.lineTo(x,y);} }ctx.stroke();}
+ function drawSmooth(arr,color){ctx.strokeStyle=color;ctx.lineWidth=5;ctx.lineJoin="round";ctx.lineCap="round";ctx.beginPath();let started=false;for(let i=0;i<arr.length;i++){if(!arr[i]){started=false;continue}if(!started){ctx.moveTo(arr[i].x,arr[i].y);started=true;continue}const p0=arr[i-2]||arr[i-1],p1=arr[i-1],p2=arr[i],p3=arr[i+1]||p2;for(let t=0;t<=1;t+=0.08){const tt=t*t,ttt=tt*t;const x=0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*tt+(-p0.x+3*p1.x-3*p2.x+p3.x)*ttt);const y=0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*tt+(-p0.y+3*p1.y-3*p2.y+p3.y)*ttt);if(i===1&&t===0){}ctx.lineTo(x,y);} }ctx.stroke();}
  const series=[{key:"sys",label:"Systolic BP",color:"#2563eb"},{key:"dia",label:"Diastolic BP",color:"#16a34a"},{key:"hr",label:"Heart rate",color:"#eab308"}];
  series.forEach(s=>drawSmooth(pathSeries(s.key),s.color));
  // selected cursor and points
  const sx=left+(right-left)*selected/Math.max(1,points.length-1);ctx.strokeStyle="#6b7280";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx,top);ctx.lineTo(sx,bottom);ctx.stroke();
  series.forEach(s=>{const v=points[selected][s.key];if(!Number.isFinite(v))return;const y=bottom-(v-min)/(max-min)*(bottom-top);ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(sx,y,11,0,Math.PI*2);ctx.fill();});
  // legend
- ctx.font="10px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.textBaseline="middle";ctx.textAlign="left";const legendWidth=right-left;const colWidth=legendWidth/3;series.forEach((s,i)=>{const textW=ctx.measureText(s.label).width;const groupW=16+6+textW;const lx=left+i*colWidth+(colWidth-groupW)/2;ctx.fillStyle=s.color;ctx.fillRect(lx,21,16,6);ctx.fillStyle="#374151";ctx.fillText(s.label,lx+22,25);});
+ let lx=left;ctx.font="17px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.textBaseline="middle";ctx.textAlign="left";series.forEach(s=>{ctx.fillStyle=s.color;ctx.fillRect(lx,20,24,9);ctx.fillStyle="#374151";ctx.fillText(s.label,lx+34,25);lx+=ctx.measureText(s.label).width+88;});
  // X labels, deliberately sparse for readability
  ctx.fillStyle="#6b7280";ctx.font="16px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.textBaseline="top";ctx.textAlign="center";
  const labels=[0,selected,vals.length-1].filter((v,i,a)=>a.indexOf(v)===i).sort((a,b)=>a-b);labels.forEach(i=>{const x=left+(right-left)*i/Math.max(1,vals.length-1);const label=`${vals[i].date.slice(5)} ${vals[i].time}`;ctx.fillText(label,x,bottom+18);});
- ctx.font="15px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillText("Date / time",(left+right)/2,bottom+46);
- const v=points[selected], item=vals[selected];$("selSys").textContent=Number.isFinite(v.sys)?v.sys:"—";$("selDia").textContent=Number.isFinite(v.dia)?v.dia:"—";$("selHr").textContent=Number.isFinite(v.hr)?v.hr:"—";$("selectedTime").textContent=`${item.date} ${item.time}`;$("sliderLabel").textContent=`Reading ${selected+1} of ${vals.length} · Touch or drag the graph`;
+ ctx.font="18px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillText("Date / time",(left+right)/2,bottom+46);
+ const v=points[selected], item=vals[selected];$("selSys").textContent=Number.isFinite(v.sys)?v.sys:"—";$("selDia").textContent=Number.isFinite(v.dia)?v.dia:"—";$("selHr").textContent=Number.isFinite(v.hr)?v.hr:"—";$("selectedTime").textContent=`${item.date} ${item.time}`;$("sliderLabel").textContent=`Reading ${selected+1} of ${vals.length}`;
 }
-const chartCanvas=$("chart");
-function selectGraphReading(clientX){
-  const rect=chartCanvas.getBoundingClientRect();
-  const left=58, right=rect.width-18;
-  const x=Math.max(left,Math.min(right,clientX-rect.left));
-  const valsCount=data.filter(x=>x.bp||x.hr).slice(-28).length;
-  if(valsCount<1)return;
-  selectedIndex=Math.round((x-left)/Math.max(1,right-left)*(valsCount-1));
-  draw();
-}
-chartCanvas.addEventListener("pointerdown",e=>{graphDragging=true;chartCanvas.setPointerCapture?.(e.pointerId);selectGraphReading(e.clientX);});
-chartCanvas.addEventListener("pointermove",e=>{if(graphDragging)selectGraphReading(e.clientX);});
-chartCanvas.addEventListener("pointerup",e=>{graphDragging=false;try{chartCanvas.releasePointerCapture?.(e.pointerId);}catch(_){} });
-chartCanvas.addEventListener("pointercancel",()=>{graphDragging=false;});
+$("chartSlider").addEventListener("input",draw);
 window.addEventListener("resize",draw);
 
 
