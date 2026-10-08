@@ -61,7 +61,7 @@ canvas{width:100%;height:auto;display:block}.graph-card{overflow:hidden}.graph-r
 </section>
 
 <section class="card graph-card">
-<div class="row"><div><b>Blood pressure and heart rate</b><div class="muted">Recorded readings over time.</div></div><button id="export" class="secondary smallbtn">Export CSV</button></div>
+<div class="row"><div><b>Blood pressure and heart rate</b><div class="muted">Recorded readings over time.</div></div><div style="display:flex;gap:6px"><button id="export" class="secondary smallbtn">Export CSV</button><button id="restore" class="secondary smallbtn" type="button">Restore</button><input id="restoreFile" type="file" accept="application/json,.json" style="display:none"></div></div>
 <div class="graph-readout" id="graphReadout">
   <div class="readout-item"><span class="readout-label">Systolic BP</span><strong id="selSys" class="sys-val">—</strong></div>
   <div class="readout-item"><span class="readout-label">Diastolic BP</span><strong id="selDia" class="dia-val">—</strong></div>
@@ -239,6 +239,22 @@ $("form").addEventListener("submit",e=>{
  if(!wasEditing){ nextCheckIn(); clearScores(); $('notes').value=''; $('sys').value=''; $('dia').value=''; $('hr').value=''; }
  else { resetFormForNewEntry(); }
 });
+$("restore").addEventListener("click",()=>$("restoreFile").click());
+$("restoreFile").addEventListener("change",async e=>{
+ const file=e.target.files&&e.target.files[0]; if(!file) return;
+ try{
+   const parsed=JSON.parse(await file.text());
+   const incoming=Array.isArray(parsed)?parsed:(Array.isArray(parsed.records)?parsed.records:[]);
+   if(!incoming.length) throw new Error("No records found");
+   const existing=new Set(data.map(keyOf));
+   let added=0;
+   incoming.forEach(x=>{if(x&&typeof x==='object'&&!existing.has(keyOf(x))){data.push(x);existing.add(keyOf(x));added++;}});
+   data.sort((a,b)=>(String(a.date)+String(a.time)).localeCompare(String(b.date)+String(b.time)));
+   save(); render();
+   $("message").textContent=`Restored ${added} new record${added===1?'':'s'} (${incoming.length} in backup). Existing records were kept.`;
+ }catch(err){ alert("That backup file could not be restored. Please choose a Med XP JSON backup."); }
+ e.target.value="";
+});
 $("backup").addEventListener("click",()=>{
  const payload=JSON.stringify({version:1,exportedAt:new Date().toISOString(),records:data},null,2);
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([payload],{type:"application/json"}));a.download="medication-effects-tracker-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -274,7 +290,7 @@ function draw(){
  [150,120,90,60,30].forEach(v=>{const y=bottom-(v-min)/(max-min)*(bottom-top);ctx.setLineDash([4,7]);ctx.strokeStyle="#d9dde3";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.setLineDash([]);ctx.fillText(String(v),left-10,y);});
  // smooth Catmull-Rom path
  function pathSeries(key){const arr=points.map((p,i)=>{const v=p[key];return Number.isFinite(v)?{x:left+(right-left)*i/Math.max(1,points.length-1),y:bottom-(v-min)/(max-min)*(bottom-top)}:null});return arr;}
- function drawSmooth(arr,color){ctx.strokeStyle=color;ctx.lineWidth=5;ctx.lineJoin="round";ctx.lineCap="round";ctx.beginPath();let started=false;for(let i=0;i<arr.length;i++){if(!arr[i]){started=false;continue}if(!started){ctx.moveTo(arr[i].x,arr[i].y);started=true;continue}const p0=arr[i-2]||arr[i-1],p1=arr[i-1],p2=arr[i],p3=arr[i+1]||p2;for(let t=0;t<=1;t+=0.08){const tt=t*t,ttt=tt*t;const x=0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*tt+(-p0.x+3*p1.x-3*p2.x+p3.x)*ttt);const y=0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*tt+(-p0.y+3*p1.y-3*p2.y+p3.y)*ttt);if(i===1&&t===0){}ctx.lineTo(x,y);} }ctx.stroke();}
+ function drawSmooth(arr,color){ctx.strokeStyle=color;ctx.lineWidth=3;ctx.lineJoin="round";ctx.lineCap="round";ctx.beginPath();let started=false;for(let i=0;i<arr.length;i++){if(!arr[i]){started=false;continue}if(!started){ctx.moveTo(arr[i].x,arr[i].y);started=true;continue}const p0=arr[i-2]||arr[i-1],p1=arr[i-1],p2=arr[i],p3=arr[i+1]||p2;for(let t=0;t<=1;t+=0.08){const tt=t*t,ttt=tt*t;const x=0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*tt+(-p0.x+3*p1.x-3*p2.x+p3.x)*ttt);const y=0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*tt+(-p0.y+3*p1.y-3*p2.y+p3.y)*ttt);if(i===1&&t===0){}ctx.lineTo(x,y);} }ctx.stroke();}
  const series=[{key:"sys",label:"Systolic BP",color:"#2563eb"},{key:"dia",label:"Diastolic BP",color:"#16a34a"},{key:"hr",label:"Heart rate",color:"#eab308"}];
  series.forEach(s=>drawSmooth(pathSeries(s.key),s.color));
  // selected cursor and points
