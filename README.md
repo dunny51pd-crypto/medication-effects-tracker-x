@@ -1,7 +1,5 @@
-# Med XP · Final deployment package
+# Medication Effects Tracker XP
 
-This is the final pre-deployment package for Med XP.
+Final deployment package. Upload the contents to GitHub and deploy with Netlify.
 
-Upload the contents of this folder to the root of the GitHub repository used by Netlify.
-
-Production deployment should only be made after the Netlify billing cycle resets.
+The graph is the interactive selected-reading version with a slider; no deployment should be made until it has been visually checked.

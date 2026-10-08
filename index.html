@@ -21,7 +21,7 @@ button{border:0;border-radius:11px;padding:12px 14px;font:inherit;font-weight:70
 .row{display:flex;justify-content:space-between;gap:10px;align-items:center}.muted{color:#6b7280;font-size:13px}
 .metric{font-size:25px;font-weight:800}.xp{font-size:34px;font-weight:850}
 .score{display:flex;gap:6px}.score button{flex:1;padding:10px 4px;background:#eef0f3}.score button.selected{background:#111827;color:white}
-canvas{width:100%;height:320px;display:block}.chart-readout{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin:14px 0 2px;font-size:13px;color:#374151}.chart-readout .chart-metric{display:flex;flex-direction:column;gap:2px}.chart-readout .chart-label{font-size:12px;color:#6b7280}.chart-readout .chart-value{font-size:22px;font-weight:800}.chart-readout .sys .chart-value{color:#2563eb}.chart-readout .dia .chart-value{color:#16a34a}.chart-readout .hr .chart-value{color:#eab308}.chart-readout .chart-time{margin-left:auto;font-size:12px;color:#374151;font-weight:650}.chart-slider-wrap{padding:12px 8px 0}.chart-slider-title{font-size:14px;font-weight:700;color:#374151;margin-bottom:7px}.chart-slider-wrap input{width:100%;height:38px;padding:0;border:0;accent-color:#111827;cursor:pointer}.chart-slider-labels{display:flex;justify-content:space-between;color:#4b5563;font-size:12px;margin-top:3px}.notice{padding:10px;border-radius:10px;background:#f3f4f6;font-size:13px}
+canvas{width:100%;height:auto;display:block}.graph-card{overflow:hidden}.graph-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:22px 0 2px}.readout-item{display:flex;flex-direction:column;gap:3px}.readout-label{font-size:18px;color:#111827}.readout-item strong{font-size:52px;line-height:1;font-weight:800}.sys-val{color:#2563eb}.dia-val{color:#16a34a}.hr-val{color:#eab308}.selected-time{text-align:right;font-size:24px;font-weight:800;color:#374151;margin:12px 0 4px}.chart-shell{width:100%;overflow:hidden}.slider-row{display:flex;align-items:center;gap:12px;margin:10px 0 0}.slider-row input{flex:1;padding:0;border:0}.slider-row input[type=range]{accent-color:#111827}.graph-note{font-size:15px;color:#6b7280;margin-top:14px;line-height:1.35}@media(max-width:480px){.graph-readout{gap:8px}.readout-label{font-size:15px}.readout-item strong{font-size:42px}.selected-time{font-size:20px}.graph-note{font-size:14px}}.notice{padding:10px;border-radius:10px;background:#f3f4f6;font-size:13px}
 .smallbtn{padding:8px 10px;font-size:13px}.delete-entry{font-size:12px;padding:7px 9px;flex-shrink:0}.edit-entry{font-size:12px;padding:7px 9px;flex-shrink:0}.actions{display:flex;gap:6px;flex-shrink:0}
 .history{max-height:280px;overflow:auto}.entry{padding:10px 0;border-bottom:1px solid #eee}.entry:last-child{border-bottom:0}
 @media(max-width:480px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
@@ -60,15 +60,17 @@ canvas{width:100%;height:320px;display:block}.chart-readout{display:flex;gap:18p
 </form>
 </section>
 
-<section class="card">
-<div class="row"><div><b>4-week overview</b><div class="muted">Your recorded readings</div></div><button id="export" class="secondary smallbtn">Export CSV</button></div>
-<div id="chartReadout" class="chart-readout" aria-live="polite">No readings yet</div>
-<canvas id="chart" width="680" height="280"></canvas>
-<div class="chart-slider-wrap">
-  <div class="chart-slider-title">Move through readings</div>
-  <input id="chartSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Move across readings">
-  <div class="chart-slider-labels"><span id="chartSliderStart"></span><span id="chartSliderEnd"></span></div>
+<section class="card graph-card">
+<div class="row"><div><b>Blood pressure and heart rate</b><div class="muted">Recorded readings over time.</div></div><button id="export" class="secondary smallbtn">Export CSV</button></div>
+<div class="graph-readout" id="graphReadout">
+  <div class="readout-item"><span class="readout-label">Systolic BP</span><strong id="selSys" class="sys-val">—</strong></div>
+  <div class="readout-item"><span class="readout-label">Diastolic BP</span><strong id="selDia" class="dia-val">—</strong></div>
+  <div class="readout-item"><span class="readout-label">Heart rate</span><strong id="selHr" class="hr-val">—</strong></div>
 </div>
+<div id="selectedTime" class="selected-time">—</div>
+<div class="chart-shell"><canvas id="chart" width="900" height="520"></canvas></div>
+<div class="slider-row"><input id="chartSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Move through recorded readings"><div id="sliderLabel" class="muted">Move through readings</div></div>
+<div class="graph-note">Systolic and diastolic are measured in mmHg. Heart rate is measured in bpm.</div>
 <div id="summary"></div>
 <div class="notice">This tracker records information for your own review. It does not interpret readings or replace advice from your prescriber.</div>
 </section>
@@ -251,41 +253,44 @@ $("export").addEventListener("click",()=>{
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="medication-effects-tracker.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });;
 function draw(){
- const c=$("chart"), cssW=Math.max(320,c.clientWidth||680), cssH=320, dpr=Math.min(window.devicePixelRatio||1,2);
- c.width=Math.round(cssW*dpr); c.height=Math.round(cssH*dpr); c.style.height=cssH+"px";
- const ctx=c.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
- const vals=data.filter(x=>x.bp||x.hr).slice(-28); const slider=$("chartSlider");
- if(!vals.length){slider.max=0;slider.value=0;$("chartSliderStart").textContent="";$("chartSliderEnd").textContent="";$('chartReadout').innerHTML='<span class="muted">Your blood pressure and heart-rate trend will appear here.</span>';ctx.fillStyle="#6b7280";ctx.font="15px sans-serif";ctx.fillText("Your blood pressure and heart-rate trend will appear here.",24,100);return;}
- slider.max=String(vals.length-1); if(Number(slider.value)>vals.length-1) slider.value=String(vals.length-1);
- const selected=Math.max(0,Math.min(vals.length-1,Number(slider.value)||0)), selectedRow=vals[selected];
- const getSys=x=>x.sys!==undefined&&x.sys!==""?Number(x.sys):Number(String(x.bp||"").split("/")[0]);
- const getDia=x=>x.dia!==undefined&&x.dia!==""?Number(x.dia):Number(String(x.bp||"").split("/")[1]);
- const getHr=x=>x.hr!==""&&x.hr!=null?Number(x.hr):NaN;
- const selectedSys=getSys(selectedRow), selectedDia=getDia(selectedRow), selectedHr=getHr(selectedRow);
- $("chartSliderStart").textContent=`${vals[0].date.slice(5)} ${vals[0].time}`; $("chartSliderEnd").textContent=`${vals[vals.length-1].date.slice(5)} ${vals[vals.length-1].time}`;
- $("chartReadout").innerHTML=`<div class="chart-metric sys"><span class="chart-label">Systolic BP</span><span class="chart-value">${Number.isFinite(selectedSys)?selectedSys:"—"}</span></div><div class="chart-metric dia"><span class="chart-label">Diastolic BP</span><span class="chart-value">${Number.isFinite(selectedDia)?selectedDia:"—"}</span></div><div class="chart-metric hr"><span class="chart-label">Heart rate</span><span class="chart-value">${Number.isFinite(selectedHr)?selectedHr:"—"}</span></div><div class="chart-time">${esc(selectedRow.date)} ${esc(selectedRow.time)}</div>`;
- const series=[{key:"sys",label:"Systolic BP",line:"#2563eb"},{key:"dia",label:"Diastolic BP",line:"#16a34a"},{key:"hr",label:"Heart rate",line:"#eab308"}];
- const points=vals.map(x=>({sys:getSys(x),dia:getDia(x),hr:getHr(x)}));
- const all=points.flatMap(p=>[p.sys,p.dia,p.hr]).filter(Number.isFinite);
- let min=Math.floor((Math.min(...all)-8)/10)*10,max=Math.ceil((Math.max(...all)+8)/10)*10; if(max-min<40){const mid=(min+max)/2;min=Math.floor((mid-20)/10)*10;max=Math.ceil((mid+20)/10)*10;}
- const left=58,right=cssW-18,top=54,bottom=cssH-62;
- ctx.strokeStyle="#d1d5db";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,bottom);ctx.lineTo(right,bottom);ctx.stroke();
- ctx.font="14px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillStyle="#4b5563";ctx.textAlign="right";ctx.textBaseline="middle";
- for(let i=0;i<=4;i++){const value=min+(max-min)*i/4,y=bottom-(bottom-top)*i/4;ctx.strokeStyle="#e5e7eb";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.fillText(String(Math.round(value)),left-10,y);}
- ctx.textAlign="center";ctx.textBaseline="top";ctx.font="13px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";
- const labelStep=Math.max(1,Math.ceil(vals.length/5)); vals.forEach((x,i)=>{if(i%labelStep===0||i===vals.length-1){const px=left+(right-left)*i/Math.max(1,vals.length-1);ctx.fillStyle="#4b5563";ctx.fillText(`${x.date.slice(5)} ${x.time}`,px,bottom+10);}});
- function pointXY(i,v){return {x:left+(right-left)*i/Math.max(1,points.length-1),y:bottom-(v-min)/(max-min)*(bottom-top)};}
- function drawSmooth(key,color){ctx.strokeStyle=color;ctx.lineWidth=3.5;ctx.beginPath();let started=false,prev=null;points.forEach((p,i)=>{const v=p[key];if(!Number.isFinite(v)){started=false;prev=null;return;}const q=pointXY(i,v);if(!started){ctx.moveTo(q.x,q.y);started=true;}else{const mx=(prev.x+q.x)/2;ctx.bezierCurveTo(mx,prev.y,mx,q.y,q.x,q.y);}prev=q;});ctx.stroke();
-   points.forEach((p,i)=>{const v=p[key];if(!Number.isFinite(v))return;const q=pointXY(i,v);ctx.fillStyle=color;ctx.beginPath();ctx.arc(q.x,q.y,i===selected?7:4,0,Math.PI*2);ctx.fill();if(i===selected){ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.stroke();}});
- }
- series.forEach(item=>drawSmooth(item.key,item.line));
- const selX=left+(right-left)*selected/Math.max(1,points.length-1);ctx.strokeStyle="#9ca3af";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(selX,top);ctx.lineTo(selX,bottom);ctx.stroke();
- ctx.textAlign="left";ctx.textBaseline="middle";ctx.font="13px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";let lx=left,legendY=22;
- series.forEach(item=>{ctx.strokeStyle=item.line;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(lx,legendY);ctx.lineTo(lx+20,legendY);ctx.stroke();ctx.fillStyle="#374151";ctx.fillText(item.label,lx+27,legendY);lx+=ctx.measureText(item.label).width+62;});
- ctx.textAlign="center";ctx.textBaseline="top";ctx.fillStyle="#6b7280";ctx.font="12px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillText("Systolic and diastolic: mmHg · Heart rate: bpm",(left+right)/2,bottom+38);
+ const c=$("chart"),ctx=c.getContext("2d");
+ const dpr=Math.max(1,window.devicePixelRatio||1),cssW=Math.max(320,c.clientWidth||900),cssH=Math.max(360,Math.round(cssW*0.58));
+ c.width=Math.round(cssW*dpr);c.height=Math.round(cssH*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+ const vals=data.filter(x=>x.bp||x.hr).slice(-28);
+ const slider=$("chartSlider");
+ if(!vals.length){ctx.clearRect(0,0,cssW,cssH);ctx.fillStyle="#6b7280";ctx.font="16px sans-serif";ctx.fillText("Your blood pressure and heart-rate trend will appear here.",24,80);slider.max=0;return;}
+ slider.max=String(vals.length-1);if(Number(slider.value)>vals.length-1)slider.value=String(vals.length-1);
+ const selected=Math.min(vals.length-1,Math.max(0,Number(slider.value)||0));
+ const points=vals.map(x=>({
+   sys:Number.isFinite(Number(x.sys))?Number(x.sys):Number(String(x.bp||"").split("/")[0]),
+   dia:Number.isFinite(Number(x.dia))?Number(x.dia):Number(String(x.bp||"").split("/")[1]),
+   hr:(x.hr!==""&&x.hr!=null)?Number(x.hr):NaN
+ }));
+ const left=58,right=cssW-18,top=68,bottom=cssH-70;
+ const min=30,max=150;
+ ctx.clearRect(0,0,cssW,cssH);
+ // grid / Y axis
+ ctx.font="18px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillStyle="#6b7280";ctx.textAlign="right";ctx.textBaseline="middle";
+ [150,120,90,60,30].forEach(v=>{const y=bottom-(v-min)/(max-min)*(bottom-top);ctx.setLineDash([4,7]);ctx.strokeStyle="#d9dde3";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.setLineDash([]);ctx.fillText(String(v),left-10,y);});
+ // smooth Catmull-Rom path
+ function pathSeries(key){const arr=points.map((p,i)=>{const v=p[key];return Number.isFinite(v)?{x:left+(right-left)*i/Math.max(1,points.length-1),y:bottom-(v-min)/(max-min)*(bottom-top)}:null});return arr;}
+ function drawSmooth(arr,color){ctx.strokeStyle=color;ctx.lineWidth=5;ctx.lineJoin="round";ctx.lineCap="round";ctx.beginPath();let started=false;for(let i=0;i<arr.length;i++){if(!arr[i]){started=false;continue}if(!started){ctx.moveTo(arr[i].x,arr[i].y);started=true;continue}const p0=arr[i-2]||arr[i-1],p1=arr[i-1],p2=arr[i],p3=arr[i+1]||p2;for(let t=0;t<=1;t+=0.08){const tt=t*t,ttt=tt*t;const x=0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*tt+(-p0.x+3*p1.x-3*p2.x+p3.x)*ttt);const y=0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*tt+(-p0.y+3*p1.y-3*p2.y+p3.y)*ttt);if(i===1&&t===0){}ctx.lineTo(x,y);} }ctx.stroke();}
+ const series=[{key:"sys",label:"Systolic BP",color:"#2563eb"},{key:"dia",label:"Diastolic BP",color:"#16a34a"},{key:"hr",label:"Heart rate",color:"#eab308"}];
+ series.forEach(s=>drawSmooth(pathSeries(s.key),s.color));
+ // selected cursor and points
+ const sx=left+(right-left)*selected/Math.max(1,points.length-1);ctx.strokeStyle="#6b7280";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx,top);ctx.lineTo(sx,bottom);ctx.stroke();
+ series.forEach(s=>{const v=points[selected][s.key];if(!Number.isFinite(v))return;const y=bottom-(v-min)/(max-min)*(bottom-top);ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(sx,y,11,0,Math.PI*2);ctx.fill();});
+ // legend
+ let lx=left;ctx.font="17px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.textBaseline="middle";ctx.textAlign="left";series.forEach(s=>{ctx.fillStyle=s.color;ctx.fillRect(lx,20,24,9);ctx.fillStyle="#374151";ctx.fillText(s.label,lx+34,25);lx+=ctx.measureText(s.label).width+88;});
+ // X labels, deliberately sparse for readability
+ ctx.fillStyle="#6b7280";ctx.font="16px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.textBaseline="top";ctx.textAlign="center";
+ const labels=[0,selected,vals.length-1].filter((v,i,a)=>a.indexOf(v)===i).sort((a,b)=>a-b);labels.forEach(i=>{const x=left+(right-left)*i/Math.max(1,vals.length-1);const label=`${vals[i].date.slice(5)} ${vals[i].time}`;ctx.fillText(label,x,bottom+18);});
+ ctx.font="18px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";ctx.fillText("Date / time",(left+right)/2,bottom+46);
+ const v=points[selected], item=vals[selected];$("selSys").textContent=Number.isFinite(v.sys)?v.sys:"—";$("selDia").textContent=Number.isFinite(v.dia)?v.dia:"—";$("selHr").textContent=Number.isFinite(v.hr)?v.hr:"—";$("selectedTime").textContent=`${item.date} ${item.time}`;$("sliderLabel").textContent=`Reading ${selected+1} of ${vals.length}`;
 }
 $("chartSlider").addEventListener("input",draw);
 window.addEventListener("resize",draw);
+
 
 initialiseNextCheckIn();
 render();
