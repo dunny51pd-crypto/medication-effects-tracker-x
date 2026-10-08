@@ -246,13 +246,57 @@ $("export").addEventListener("click",()=>{
 });;
 function draw(){
  const c=$("chart"),ctx=c.getContext("2d"),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);
- ctx.strokeStyle="#d1d5db";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(40,15);ctx.lineTo(40,h-30);ctx.lineTo(w-10,h-30);ctx.stroke();
- const vals=data.filter(x=>x.hr).slice(-28);
- if(!vals.length){ctx.fillStyle="#6b7280";ctx.font="14px sans-serif";ctx.fillText("Your heart-rate trend will appear here.",55,80);return}
- const nums=vals.map(x=>Number(x.hr)),min=Math.min(...nums)-5,max=Math.max(...nums)+5;
- ctx.strokeStyle="#111827";ctx.lineWidth=2;ctx.beginPath();
- vals.forEach((x,i)=>{const px=45+i*(w-60)/Math.max(1,vals.length-1),py=(h-35)-(Number(x.hr)-min)/(max-min)*(h-55);i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();
+ const vals=data.filter(x=>x.bp||x.hr).slice(-28);
+ if(!vals.length){ctx.fillStyle="#6b7280";ctx.font="14px sans-serif";ctx.fillText("Your blood pressure and heart-rate trend will appear here.",28,80);return}
+ const series=[
+  {key:"sys",label:"Systolic BP",line:"#2563eb"},
+  {key:"dia",label:"Diastolic BP",line:"#16a34a"},
+  {key:"hr",label:"Heart rate",line:"#f2c94c"}
+ ];
+ const points=[];
+ vals.forEach(x=>{
+   const sys=x.sys!==undefined&&x.sys!==""?Number(x.sys):Number(String(x.bp||"").split("/")[0]);
+   const dia=x.dia!==undefined&&x.dia!==""?Number(x.dia):Number(String(x.bp||"").split("/")[1]);
+   const hr=x.hr!==""&&x.hr!=null?Number(x.hr):NaN;
+   points.push({sys:Number.isFinite(sys)?sys:NaN,dia:Number.isFinite(dia)?dia:NaN,hr:Number.isFinite(hr)?hr:NaN});
+ });
+ const all=points.flatMap(p=>[p.sys,p.dia,p.hr]).filter(Number.isFinite);
+ let min=Math.floor((Math.min(...all)-10)/10)*10, max=Math.ceil((Math.max(...all)+10)/10)*10;
+ if(max-min<40){const mid=(min+max)/2;min=Math.floor((mid-20)/10)*10;max=Math.ceil((mid+20)/10)*10;}
+ const left=54,right=w-14,top=34,bottom=h-55;
+ ctx.strokeStyle="#d1d5db";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,bottom);ctx.lineTo(right,bottom);ctx.stroke();
+ ctx.font="11px sans-serif";ctx.fillStyle="#6b7280";ctx.textAlign="right";ctx.textBaseline="middle";
+ for(let i=0;i<=4;i++){
+   const value=min+(max-min)*i/4, y=bottom-(bottom-top)*i/4;
+   ctx.strokeStyle="#e5e7eb";ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.setLineDash([]);
+   ctx.fillText(String(Math.round(value)),left-7,y);
+ }
+ ctx.textAlign="center";ctx.textBaseline="top";ctx.font="10px sans-serif";
+ const step=Math.max(1,Math.ceil(vals.length/6));
+ vals.forEach((x,i)=>{if(i%step===0||i===vals.length-1){const px=left+(right-left)*i/Math.max(1,vals.length-1);ctx.fillStyle="#6b7280";ctx.fillText(`${x.date.slice(5)} ${x.time}`,px,bottom+7);}});
+ ctx.fillStyle="#4b5563";ctx.font="12px sans-serif";ctx.fillText("Date / time",(left+right)/2,bottom+28);
+ function smoothPath(values){
+   const pts=[];
+   values.forEach((v,i)=>{if(Number.isFinite(v)){const px=left+(right-left)*i/Math.max(1,points.length-1),py=bottom-(v-min)/(max-min)*(bottom-top);pts.push([px,py]);}});
+   if(!pts.length)return;
+   ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+   for(let i=1;i<pts.length;i++){
+     const prev=pts[i-1],cur=pts[i],midX=(prev[0]+cur[0])/2;
+     ctx.quadraticCurveTo(prev[0],prev[1],midX,(prev[1]+cur[1])/2);
+     ctx.quadraticCurveTo(cur[0],cur[1],cur[0],cur[1]);
+   }
+   ctx.stroke();
+ }
+ series.forEach(item=>{
+   ctx.strokeStyle=item.line;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
+   smoothPath(points.map(p=>p[item.key]));
+   points.forEach((p,i)=>{const v=p[item.key];if(!Number.isFinite(v))return;const px=left+(right-left)*i/Math.max(1,points.length-1),py=bottom-(v-min)/(max-min)*(bottom-top);ctx.fillStyle=item.line;ctx.beginPath();ctx.arc(px,py,2.8,0,Math.PI*2);ctx.fill();});
+ });
+ const legendY=15;let lx=left;ctx.textBaseline="middle";ctx.font="11px sans-serif";
+ series.forEach(item=>{ctx.strokeStyle=item.line;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(lx,legendY);ctx.lineTo(lx+18,legendY);ctx.stroke();ctx.fillStyle="#374151";ctx.textAlign="left";ctx.fillText(item.label,lx+23,legendY);lx+=ctx.measureText(item.label).width+55;});
+ ctx.textAlign="left";ctx.fillStyle="#6b7280";ctx.font="10px sans-serif";ctx.fillText("Systolic and diastolic are measured in mmHg. Heart rate is measured in bpm.",left,bottom+45);
 }
+
 initialiseNextCheckIn();
 render();
 })();
